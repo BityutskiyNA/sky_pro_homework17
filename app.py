@@ -12,9 +12,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///test.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 api = Api(app)
-movie_ns = api.namespace("movie")
-director_ns = api.namespace("director")
-genre_ns = api.namespace("genre")
+movie_ns = api.namespace("movies")
+director_ns = api.namespace("directors")
+genre_ns = api.namespace("genres")
 
 
 class Movie(db.Model):
@@ -44,7 +44,7 @@ class Genre(db.Model):
 
 
 class MovieSchema(Schema):
-    id = fields.Int(dump_only=True)
+    id = fields.Int()
     title = fields.Str()
     description = fields.Str()
     trailer = fields.Str()
@@ -84,8 +84,44 @@ class Movie_one(Resource):
         return movie_schema.dump(Movie.query.get(n_id))
 
 
+    def put(self, n_id):
+        movie = Movie.query.get(n_id)
+        if not movie:
+            return "", 404
+        req_json = request.json
+
+        movie.name = req_json.get("name")
+        movie.title = req_json.get("title")
+        movie.description = req_json.get("description")
+        movie.trailer = req_json.get("trailer")
+        movie.year = req_json.get("year")
+        movie.rating = req_json.get("rating")
+        movie.genre_id = req_json.get("genre_id")
+        movie.director_id = req_json.get("director_id")
+        db.session.add(movie)
+        db.session.commit()
+        return "", 204
+
+    def delete(self, n_id):
+        movie = Movie.query.get(n_id)
+        if not movie:
+            return "", 404
+        db.session.delete(movie)
+        db.session.commit()
+        return "", 204
+
 @movie_ns.route("/")
 class Movie_one_by_filter(Resource):
+    def post(self):
+        req_json = request.json
+        genre = Movie.query.get(req_json.get("id"))
+        if not genre:
+            role = Movie(**req_json)
+            db.session.add(role)
+            db.session.commit()
+            return "", 204
+        return "Элемент с таким id есть в базе", 404
+
     def get(self):
         director_id = ""
         genre_id = ""
@@ -104,8 +140,18 @@ class Movie_one_by_filter(Resource):
         return s
 
 
+
+@director_ns.route("/")
+class Director_all(Resource):
+    def get(self):
+        return genres_schema.dumps(Director.query.all())
+
+
 @director_ns.route("/<int:d_id>")
 class Director_one(Resource):
+    def get(self, d_id):
+        return genre_schema.dump(Director.query.get(d_id))
+
     def post(self, d_id):
         director = Director.query.get(d_id)
         if not director:
@@ -138,8 +184,17 @@ class Director_one(Resource):
         return "", 204
 
 
+@genre_ns.route("/")
+class Genre_all(Resource):
+    def get(self):
+        return genres_schema.dumps(Genre.query.all())
+
+
 @genre_ns.route("/<int:g_id>")
 class Genre_one(Resource):
+    def get(self, g_id):
+        return genre_schema.dump(Genre.query.get(g_id))
+
     def post(self, g_id):
         genre = Genre.query.get(g_id)
         if not genre:
